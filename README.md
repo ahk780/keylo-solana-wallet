@@ -30,7 +30,7 @@ Having trouble with installation or need support? Join our community!
 ## 🎨 Frontend Options
 
 **Ready-to-Use Frontend**: Get started instantly with our professional frontend interface:
-👉 **https://github.com/ahk780/keylo-frontend-public**
+👉 **https://github.com/ahk780/keylo-solana-wallet-frontend**
 
 **Custom Development**: The backend's RESTful API architecture makes it easy to create your own custom frontend or integrate with existing applications. All endpoints are fully documented and follow standard REST conventions.
 

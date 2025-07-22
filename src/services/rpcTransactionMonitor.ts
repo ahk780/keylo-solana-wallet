@@ -411,7 +411,7 @@ export class RPCTransactionMonitor {
         }
         
         // Add SOL changes (if significant) - lowered spam filter
-        if (solChange !== 0 && Math.abs(solChange) > 0.0000001) { // Lowered threshold
+        if (solChange !== 0 && Math.abs(solChange) > 0.00001) { // Lowered threshold
           allBalanceChanges.push({
             mint: SOL_MINT,
             amount: solChange,

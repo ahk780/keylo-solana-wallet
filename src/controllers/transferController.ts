@@ -1,10 +1,59 @@
 import { Request, Response } from 'express';
 import { User } from '../models/User';
 import { Wallet } from '../models/Wallet';
+import { Asset } from '../models/Asset';
 import { Transaction } from '../models/Transaction';
-import { transfer } from '../utils/transfer';
+import { transfer, SOL_MINT } from '../utils/transfer';
 import { decryptPrivateKey } from '../utils/encryption';
 import { ITransferRequest, IApiResponse } from '../types';
+
+/**
+ * Update asset balance after successful transfer
+ * @param {string} userId - User ID
+ * @param {string} mint - Token mint address
+ * @param {number} amount - Amount transferred (to subtract from balance)
+ */
+const updateAssetBalance = async (userId: string, mint: string, amount: number): Promise<void> => {
+  try {
+    console.log(`💰 Updating asset balance after transfer: ${amount} of ${mint}`);
+
+    // Find the user's asset for this mint
+    const asset = await Asset.findOne({
+      userId: userId,
+      mint: mint,
+      status: 'available'
+    });
+
+    if (!asset) {
+      console.log(`⚠️ Asset not found for mint ${mint} (user: ${userId})`);
+      return;
+    }
+
+    // Calculate new balance
+    const newBalance = Math.max(0, asset.balance - amount);
+
+    console.log(`📊 Asset balance update: ${asset.balance} → ${newBalance} ${asset.symbol}`);
+
+    // Update balance using the asset method
+    asset.updateBalance(newBalance);
+
+    // Update sold totals for tracking
+    asset.totalSold = (asset.totalSold || 0) + amount;
+
+    // Check if asset should be marked as sold (effectively empty)
+    if (asset.isEffectivelyEmpty()) {
+      asset.status = 'sold';
+      asset.lastSoldAt = new Date();
+      console.log(`✅ Asset marked as SOLD: ${asset.symbol} (balance: ${newBalance})`);
+    }
+
+    await asset.save();
+    console.log(`💾 Asset balance updated successfully for ${asset.symbol}`);
+
+  } catch (error) {
+    console.error(`❌ Error updating asset balance after transfer:`, error);
+  }
+};
 
 /**
  * Transfer SOL or SPL tokens to another wallet
@@ -82,6 +131,35 @@ export const transferTokens = async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    // Check if user has sufficient balance for non-SOL tokens
+    if (mint !== SOL_MINT) {
+      const asset = await Asset.findOne({ 
+        userId: userId, 
+        mint: mint, 
+        status: 'available' 
+      });
+
+      if (!asset) {
+        const response: IApiResponse = {
+          success: false,
+          message: 'Asset not found',
+          error: 'You do not own this token or no balance available'
+        };
+        res.status(404).json(response);
+        return;
+      }
+
+      if (asset.balance < amount) {
+        const response: IApiResponse = {
+          success: false,
+          message: 'Insufficient balance',
+          error: `Insufficient balance. Available: ${asset.balance} ${asset.symbol}, Required: ${amount}`
+        };
+        res.status(400).json(response);
+        return;
+      }
+    }
+
     // Get environment variables
     const encryptionKey = process.env.ENCRYPTION_KEY;
     const rpcUrl = process.env.SOLANA_RPC_URL;
@@ -114,6 +192,11 @@ export const transferTokens = async (req: Request, res: Response): Promise<void>
     const transferResult = await transfer(privateKey, to, mint, amount, rpcUrl);
 
     if (transferResult.success) {
+      // Update asset balance immediately for non-SOL tokens
+      if (mint !== SOL_MINT) {
+        await updateAssetBalance(userId, mint, amount);
+      }
+
       // Transaction will be automatically detected and stored by the monitoring service
       const response: IApiResponse = {
         success: true,
@@ -125,7 +208,7 @@ export const transferTokens = async (req: Request, res: Response): Promise<void>
           mint: mint,
           amount: amount,
           status: 'confirmed',
-          note: 'Transaction details will be automatically tracked by the monitoring service'
+          note: 'Asset balance updated immediately'
         }
       };
       res.status(200).json(response);

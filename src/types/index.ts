@@ -13,6 +13,18 @@ export interface IUser extends Document {
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
+export interface IOTP extends Document {
+  _id: string;
+  userId?: string; // Optional for register type
+  email: string;
+  otp: string;
+  userIp: string;
+  type: 'login' | 'register' | 'withdraw' | 'security';
+  status: 'pending' | 'used' | 'expired';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface IWallet extends Document {
   _id: string;
   privateKey: string; // Encrypted private key

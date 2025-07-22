@@ -10,6 +10,7 @@ import priceRoutes from './routes/priceRoutes';
 import orderRoutes from './routes/orderRoutes';
 import tokenRoutes from './routes/tokenRoutes';
 import adminRoutes from './routes/adminRoutes';
+import otpRoutes from './routes/otpRoutes';
 import { startAssetDiscoveryJob, stopAssetDiscoveryJob } from './jobs/assetDiscoveryJob';
 import { startTrendingTokensJob } from './jobs/trendingTokensJob';
 import { startSolPriceJob, stopSolPriceJob } from './jobs/solPriceJob';
@@ -85,6 +86,7 @@ app.use('/api/user/orders', orderRoutes);
 app.use('/api/price', priceRoutes);
 app.use('/api/token', tokenRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/otp', otpRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

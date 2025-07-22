@@ -1,8 +1,12 @@
+// Load environment variables FIRST
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
+import './config'; // Load config early
 import { connectDatabase } from './utils/database';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
@@ -19,11 +23,32 @@ import { startTransactionMonitorJob, stopTransactionMonitorJob } from './jobs/tr
 import { startTokenCleanupJob, stopTokenCleanupJob } from './jobs/tokenCleanupJob';
 import { IApiResponse } from './types';
 
-// Load environment variables
-dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ⚠️ CRITICAL: Configure trust proxy IMMEDIATELY after creating Express app
+// This is required when behind reverse proxies, load balancers, or CDNs (like Cloudflare)
+console.log('🔧 Debug Environment Variables:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('TRUST_PROXY:', process.env.TRUST_PROXY);
+
+// For Cloudflare, always trust first proxy in production
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+  console.log('🌥️ Cloudflare configuration applied: trust proxy = 1');
+  console.log(`✅ Express trust proxy setting: ${app.get('trust proxy')}`);
+} else {
+  // Development mode
+  const trustProxy = process.env.TRUST_PROXY;
+  if (trustProxy && trustProxy !== 'false') {
+    const proxyValue = trustProxy === 'true' ? true : parseInt(trustProxy) || 1;
+    app.set('trust proxy', proxyValue);
+    console.log(`✅ Trust proxy enabled: ${trustProxy} (value: ${proxyValue})`);
+  } else {
+    app.set('trust proxy', false);
+    console.log('ℹ️ Trust proxy disabled for development');
+  }
+}
 
 // Security middleware
 app.use(helmet({

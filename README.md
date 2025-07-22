@@ -13,7 +13,7 @@ Having trouble with installation or need support? Join our community!
 
 ✨ **Multi-DEX Trading Hub** - Trade seamlessly across **PumpFun**, **Raydium**, **Meteora**, **LaunchLab**, **Moonshot**, and **Jupiter** - all from one unified platform
 
-🔒 **Bank-Level Security** - Advanced JWT authentication, encrypted private keys, comprehensive session management, and role-based access control
+🔒 **Bank-Level Security** - Advanced JWT authentication with email OTP verification, encrypted private keys, comprehensive session management, and role-based access control
 
 💰 **Complete Asset Management** - Real-time portfolio tracking, automated asset discovery, intelligent token operations (burn/close accounts), and comprehensive transaction history
 
@@ -47,6 +47,7 @@ Want to add your own functionality? The system is built with extensibility in mi
 ## Features
 
 - **User Authentication**: JWT-based authentication with register, login, session validation, and secure logout
+- **OTP Authentication**: Two-factor authentication via email OTP for enhanced security on login and registration
 - **Advanced Session Management**: Token blacklisting with automatic cleanup and permanent invalidation
 - **Secure Logout System**: Complete token invalidation preventing reuse and automatic cleanup of expired sessions
 - **Solana Wallet Generation**: Automatic wallet creation with base58 encoded private keys
@@ -70,6 +71,8 @@ Want to add your own functionality? The system is built with extensibility in mi
 - **Token Overview**: Comprehensive token information including metadata, holder distribution, market data, and DEX information
 - **Limit Orders**: Automated buy/sell orders with price monitoring, custom slippage and tip support
 - **Enhanced Dashboard Analytics**: Comprehensive portfolio, trading, and performance statistics with transaction insights
+- **Email Service**: Professional SMTP-based email delivery for OTP authentication with HTML templates
+- **Advanced Rate Limiting**: OTP-specific rate limiting (3 requests per minute per email/IP) with intelligent validation
 - **MongoDB Integration**: Professional database schema with proper indexing
 - **Input Validation**: Comprehensive validation and sanitization
 - **Rate Limiting**: Protection against abuse and DDoS attacks
@@ -93,6 +96,7 @@ Want to add your own functionality? The system is built with extensibility in mi
 - **cors** - Cross-origin resource sharing
 - **express-rate-limit** - Rate limiting
 - **node-cron** - Background job scheduling
+- **nodemailer** - Email service for OTP delivery
 - **axios** - HTTP client for API requests
 - **Coinvera API** - Real-time token price data and comprehensive token overview
 - **Helius API** - Enhanced token metadata fetching
@@ -152,6 +156,18 @@ HELIUS_APIKEY=your-helius-api-key-here
 # Asset Job Configuration
 ASSET_JOB_INTERVAL=10000
 ASSET_JOB_ENABLED=true
+
+# SMTP Configuration for OTP Emails
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM_NAME=Keylo
+SMTP_FROM_EMAIL=no-reply@keylo.io
+
+# Trust Proxy Configuration (for production deployments)
+TRUST_PROXY=1
 ```
 
 ### 3. Development
@@ -173,7 +189,7 @@ npm start
 
 The backend provides comprehensive RESTful endpoints for:
 
-- **Authentication**: User registration, login, session management, and secure logout
+- **Authentication**: User registration, login with email OTP verification, session management, and secure logout
 - **Wallet Operations**: Balance checking, token transfers, and transaction history
 - **Asset Management**: Portfolio tracking, asset discovery, and token operations
 - **Trading**: Multi-DEX trading, limit orders, and market data
@@ -280,11 +296,30 @@ All endpoints return consistent JSON responses with proper HTTP status codes and
 }
 ```
 
+### OTPs Collection
+```javascript
+{
+  _id: ObjectId,
+  userId: String (user reference - optional for register type),
+  email: String (recipient email address),
+  otp: String (6-digit verification code),
+  userIp: String (user IP address for security tracking),
+  type: String (login|register|withdraw|security),
+  status: String (pending|used|expired),
+  createdAt: Date (auto-expires after 5 minutes),
+  updatedAt: Date
+}
+```
+
 ## Security Features
 
 ### Authentication
 - JWT tokens with configurable expiration
 - Password hashing with bcrypt (12 rounds)
+- **Email OTP verification** for login and registration
+- **OTP rate limiting** (3 requests per minute per email/IP)
+- **OTP security tracking** with IP address logging and masking
+- **Auto-expiring OTP codes** (5-minute expiration with MongoDB TTL)
 - Session validation middleware
 - Role-based access control
 - **Complete logout system with token blacklisting**

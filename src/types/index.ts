@@ -109,11 +109,13 @@ export interface IRegisterRequest {
   name: string;
   email: string;
   password: string;
+  otp: string;
 }
 
 export interface ILoginRequest {
   email: string;
   password: string;
+  otp: string;
 }
 
 export interface ITransferRequest {

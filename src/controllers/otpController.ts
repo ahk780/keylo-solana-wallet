@@ -23,6 +23,61 @@ const getRealIP = (req: Request): string => {
   ).split(',')[0].trim();
 };
 
+// Helper function to mask sensitive information in logs
+const maskIP = (ip: string): string => {
+  if (ip === 'unknown' || !ip) return ip;
+  const parts = ip.split('.');
+  if (parts.length === 4) {
+    return `${parts[0]}.${parts[1]}.***.***.***`;
+  }
+  return '***.***.***';
+};
+
+const maskOTP = (otp: string): string => {
+  if (otp.length <= 2) return '*'.repeat(otp.length);
+  return otp.substring(0, 2) + '*'.repeat(otp.length - 2);
+};
+
+// Helper function to verify OTP and mark as used
+export const verifyAndUseOTP = async (
+  email: string, 
+  otp: string, 
+  type: string, 
+  userIp: string
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    // Find valid OTP
+    const otpRecord = await OTP.findOne({
+      email: email.toLowerCase(),
+      otp,
+      type,
+      status: 'pending',
+      createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // Within last 5 minutes
+    });
+
+    if (!otpRecord) {
+      return { success: false, message: 'Invalid or expired OTP' };
+    }
+
+    // Mark OTP as used
+    const updatedOTP = await OTP.findByIdAndUpdate(
+      otpRecord._id,
+      { 
+        status: 'used',
+        userIp
+      },
+      { new: true }
+    );
+
+    console.log(`OTP status updated to: ${updatedOTP?.status} for ${email} (${type}) from IP: ${maskIP(userIp)}`);
+    
+    return { success: true, message: 'OTP verified successfully' };
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    return { success: false, message: 'OTP verification failed' };
+  }
+};
+
 export const requestOTP = async (req: Request, res: Response): Promise<void> => {
   try {
     // Validate request
@@ -143,7 +198,7 @@ export const requestOTP = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    console.log(`OTP ${otpCode} generated for ${email} (${type}) from IP: ${userIp}`);
+    console.log(`OTP ${maskOTP(otpCode)} generated for ${email} (${type}) from IP: ${maskIP(userIp)}`);
 
     res.status(200).json({
       success: true,
@@ -202,12 +257,28 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Mark OTP as used
-    await OTP.findByIdAndUpdate(otpRecord._id, { 
-      status: 'used',
-      userIp // Update with verification IP
-    });
+    try {
+      const updatedOTP = await OTP.findByIdAndUpdate(
+        otpRecord._id, 
+        { 
+          status: 'used',
+          userIp // Update with verification IP
+        },
+        { new: true } // Return the updated document
+      );
+      
+      console.log(`OTP status updated to: ${updatedOTP?.status} for ${email} (${type}) from IP: ${maskIP(userIp)}`);
+    } catch (updateError) {
+      console.error('Failed to update OTP status:', updateError);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update OTP status',
+        error: 'Internal server error'
+      } as IApiResponse);
+      return;
+    }
 
-    console.log(`OTP verified successfully for ${email} (${type}) from IP: ${userIp}`);
+    console.log(`OTP verified successfully for ${email} (${type}) from IP: ${maskIP(userIp)}`);
 
     res.status(200).json({
       success: true,

@@ -5,7 +5,20 @@ import { InvalidatedToken } from '../models/InvalidatedToken';
 import { generateSolanaWallet, getSolanaBalance } from '../utils/solana';
 import { encryptPrivateKey } from '../utils/encryption';
 import { generateToken, verifyToken } from '../utils/jwt';
+import { verifyAndUseOTP } from './otpController';
 import { IRegisterRequest, ILoginRequest, IAuthResponse, IApiResponse } from '../types';
+
+// Get real IP address (considering proxies)
+const getRealIP = (req: Request): string => {
+  return (
+    req.headers['x-forwarded-for'] as string ||
+    req.headers['x-real-ip'] as string ||
+    req.connection.remoteAddress ||
+    req.socket.remoteAddress ||
+    (req.connection as any)?.socket?.remoteAddress ||
+    'unknown'
+  ).split(',')[0].trim();
+};
 
 /**
  * Register a new user
@@ -14,7 +27,20 @@ import { IRegisterRequest, ILoginRequest, IAuthResponse, IApiResponse } from '..
  */
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password }: IRegisterRequest = req.body;
+    const { name, email, password, otp }: IRegisterRequest = req.body;
+    const userIp = getRealIP(req);
+
+    // Verify OTP first
+    const otpVerification = await verifyAndUseOTP(email, otp, 'register', userIp);
+    if (!otpVerification.success) {
+      const response: IApiResponse = {
+        success: false,
+        message: otpVerification.message,
+        error: 'OTP verification failed'
+      };
+      res.status(400).json(response);
+      return;
+    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -124,9 +150,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
  */
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password }: ILoginRequest = req.body;
+    const { email, password, otp }: ILoginRequest = req.body;
+    const userIp = getRealIP(req);
 
-    // Find user by email
+    // Find user by email first (to check if user exists before verifying OTP)
     const user = await User.findOne({ email });
     if (!user) {
       const response: IApiResponse = {
@@ -135,6 +162,18 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         error: 'Email or password is incorrect'
       };
       res.status(401).json(response);
+      return;
+    }
+
+    // Verify OTP
+    const otpVerification = await verifyAndUseOTP(email, otp, 'login', userIp);
+    if (!otpVerification.success) {
+      const response: IApiResponse = {
+        success: false,
+        message: otpVerification.message,
+        error: 'OTP verification failed'
+      };
+      res.status(400).json(response);
       return;
     }
 

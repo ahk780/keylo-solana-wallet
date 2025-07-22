@@ -1,14 +1,5 @@
 import nodemailer from 'nodemailer';
-
-interface EmailConfig {
-  host: string;
-  port: number;
-  secure: boolean;
-  user: string;
-  pass: string;
-  fromName: string;
-  fromEmail: string;
-}
+import { smtp } from '../config';
 
 interface SendOTPEmailParams {
   email: string;
@@ -18,31 +9,20 @@ interface SendOTPEmailParams {
 
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
-  private config: EmailConfig;
 
   constructor() {
-    this.config = {
-      host: process.env.SMTP_HOST || '',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
-      user: process.env.SMTP_USER || '',
-      pass: process.env.SMTP_PASS || '',
-      fromName: process.env.SMTP_FROM_NAME || 'Keylo',
-      fromEmail: process.env.SMTP_FROM_EMAIL || 'no-reply@keylo.io'
-    };
-
     this.initializeTransporter();
   }
 
   private initializeTransporter(): void {
     try {
       this.transporter = nodemailer.createTransport({
-        host: this.config.host,
-        port: this.config.port,
-        secure: this.config.secure,
+        host: smtp.host,
+        port: smtp.port,
+        secure: smtp.secure,
         auth: {
-          user: this.config.user,
-          pass: this.config.pass
+          user: smtp.user,
+          pass: smtp.pass
         }
       });
     } catch (error) {
@@ -130,7 +110,7 @@ class EmailService {
       const { subject, html } = this.getEmailTemplate(type, otp);
 
       const mailOptions = {
-        from: `"${this.config.fromName}" <${this.config.fromEmail}>`,
+        from: `"${smtp.fromName}" <${smtp.fromEmail}>`,
         to: email,
         subject: subject,
         html: html

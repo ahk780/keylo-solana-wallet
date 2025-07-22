@@ -56,6 +56,12 @@ export const validateRegister = [
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
   
+  body('otp')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('OTP must be exactly 6 characters')
+    .isNumeric()
+    .withMessage('OTP must be numeric'),
+  
   handleValidationErrors
 ];
 
@@ -74,6 +80,12 @@ export const validateLogin = [
     .withMessage('Password is required')
     .isLength({ min: 1 })
     .withMessage('Password cannot be empty'),
+  
+  body('otp')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('OTP must be exactly 6 characters')
+    .isNumeric()
+    .withMessage('OTP must be numeric'),
   
   handleValidationErrors
 ];
